@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Object Structure Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .card {
+            width: 100%;
+            max-width: 640px;
+            margin: 0 auto;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .card-header, .card-content, .card-footer {
+            margin-bottom: 16px;
+        }
+        .card-title {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .card-description {
+            font-size: 16px;
+            color: #666;
+        }
+        .label, .label-checkbox {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .input, .textarea, .select {
+            width: calc(100% - 16px);
+            padding: 8px;
+            margin: 8px 0;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .textarea {
+            resize: vertical;
+            height: 80px;
+        }
+        .button {
+            padding: 8px 16px;
+            font-size: 14px;
+            color: #fff;
+            background-color: #007BFF;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .property-container {
+            padding-left: 16px;
+            border-left: 2px solid #eee;
+            position: relative;
+        }
+        .checkbox {
+            margin-right: 8px;
+        }
+        .generated-structure {
+            background-color: #f9f9f9;
+            padding: 16px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .delete-button {
+            position: absolute;
+            right: 0;
+            cursor: pointer;
+            color: red;
+            border: none;
+            background: none;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Object Structure Generator</div>
+            <div class="card-description">Define the structure of your object</div>
+        </div>
+        <div class="card-content">
+            <div>
+                <label class="label" for="name">Name</label>
+                <input id="name" class="input" placeholder="Enter object name">
+            </div>
+            <div>
+                <label class="label" for="description">Description</label>
+                <textarea id="description" class="textarea" placeholder="Enter object description"></textarea>
+            </div>
+            <div>
+                <label class="label">Properties</label>
+                <div id="properties"></div>
+            </div>
+            <div>
+                <label class="label" for="newProperty">Add New Property</label>
+                <div>
+                    <input id="newProperty" class="input" placeholder="New property name">
+                    <button class="button" id="addPropertyButton">Add</button>
+                </div>
+            </div>
+            <div>
+                <label class="label" for="selectedProperty">Add Sub-property</label>
+                <div>
+                    <select id="selectedProperty" class="select">
+                        <option value="">Select a property</option>
+                    </select>
+                    <input id="newSubProperty" class="input" placeholder="New sub-property name">
+                    <button class="button" id="addSubPropertyButton">Add</button>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="generated-structure">
+                <h3 class="generated-title">Generated Structure:</h3>
+                <pre id="generatedStructure"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Declaro la estructura una sola vez
+        let structure = {
+            name: "",
+            description: "",
+            parameters: {
+                type: "object",
+                properties: {},
+                required: []
+            }
+        };
+
+        // Eventos de entrada del nombre
+        document.getElementById('name').addEventListener('input', (e) => {
+            structure.name = e.target.value;
+            updateGeneratedStructure();
+        });
+
+        // Eventos de entrada de la descripción
+        document.getElementById('description').addEventListener('input', (e) => {
+            structure.description = e.target.value;
+            updateGeneratedStructure();
+        });
+
+        // Agregar propiedad 
+        document.getElementById('addPropertyButton').addEventListener('click', () => {
+            const newProperty = document.getElementById('newProperty').value;
+            if (newProperty) {
+                structure.parameters.properties[newProperty] = {
+                    type: "object",
+                    properties: {},
+                    required: []
+                };
+                document.getElementById('newProperty').value = "";
+                updateProperties();
+                updateGeneratedStructure();
+            }
+        });
+
+        // Agregar sub-propiedad
+        document.getElementById('addSubPropertyButton').addEventListener('click', () => {
+            const selectedProperty = document.getElementById('selectedProperty').value;
+            const newSubProperty = document.getElementById('newSubProperty').value;
+            if (selectedProperty && newSubProperty) {
+                structure.parameters.properties[selectedProperty].properties[newSubProperty] = {
+                    type: "string",
+                    description: ""
+                };
+                document.getElementById('newSubProperty').value = "";
+                updateProperties();
+                updateGeneratedStructure();
+            }
+        });
+
+        // Actualiza las propiedades en la interfaz
+        function updateProperties() {
+            const propertiesDiv = document.getElementById('properties');
+            propertiesDiv.innerHTML = '';
+
+            Object.entries(structure.parameters.properties).forEach(([propName, propValue]) => {
+                const propContainer = document.createElement('div');
+                propContainer.className = 'property-container';
+
+                const propLabel = document.createElement('label');
+                propLabel.className = 'label-checkbox';
+                propLabel.innerHTML = `
+                    <input type="checkbox" class="checkbox" onchange="handleRequiredChange('${propName}', this.checked)">
+                    ${propName} (Required)
+                `;
+                propContainer.appendChild(propLabel);
+
+                // Crear botón de eliminación para la propiedad
+                const deletePropertyButton = document.createElement('button');
+                deletePropertyButton.className = 'delete-button';
+                deletePropertyButton.innerText = 'Delete';
+                deletePropertyButton.onclick = () => {
+                    deleteProperty(propName);
+                };
+                propContainer.appendChild(deletePropertyButton);
+
+                if (propValue.properties) {
+                    Object.entries(propValue.properties).forEach(([subPropName, subPropValue]) => {
+                        const subPropContainer = document.createElement('div');
+                        subPropContainer.className = 'property-container';
+
+                        const subPropLabel = document.createElement('label');
+                        subPropLabel.className = 'label-checkbox';
+                        subPropLabel.innerHTML = `
+                            <input type="checkbox" class="checkbox" onchange="handleSubPropertyRequiredChange('${propName}', '${subPropName}', this.checked)">
+                            ${subPropName}
+                        `;
+                        subPropContainer.appendChild(subPropLabel);
+
+                        const subPropInput = document.createElement('input');
+                        subPropInput.className = 'input';
+                        subPropInput.value = subPropValue.description;
+                        subPropInput.placeholder = 'Enter description';
+                        subPropInput.oninput = (e) => {
+                            handleSubPropertyDescriptionChange(propName, subPropName, e.target.value);
+                        };
+                        subPropContainer.appendChild(subPropInput);
+
+                        // Crear botón de eliminación para la sub-propiedad
+                        const deleteSubPropertyButton = document.createElement('button');
+                        deleteSubPropertyButton.className = 'delete-button';
+                        deleteSubPropertyButton.innerText = 'Delete';
+                        deleteSubPropertyButton.onclick = () => {
+                            deleteSubProperty(propName, subPropName);
+                        };
+                        subPropContainer.appendChild(deleteSubPropertyButton);
+
+                        propContainer.appendChild(subPropContainer);
+                    });
+                }
+                
+                propertiesDiv.appendChild(propContainer);
+            });
+
+            const selectedProperty = document.getElementById('selectedProperty');
+            selectedProperty.innerHTML = '<option value="">Select a property</option>';
+            Object.keys(structure.parameters.properties).forEach(propName => {
+                const option = document.createElement('option');
+                option.value = propName;
+                option.text = propName;
+                selectedProperty.appendChild(option);
+            });
+        }
+
+        // Función para eliminar propiedades
+        function deleteProperty(propertyName) {
+            delete structure.parameters.properties[propertyName];
+            updateProperties();
+            updateGeneratedStructure();
+        }
+
+        // Función para eliminar sub-propiedades
+        function deleteSubProperty(propertyName, subPropertyName) {
+            delete structure.parameters.properties[propertyName].properties[subPropertyName];
+            updateProperties();
+            updateGeneratedStructure();
+        }
+
+        // Manejar cambios en la obligatoriedad de propiedades
+        function handleRequiredChange(propertyName, isChecked) {
+            if (isChecked) {
+                structure.parameters.required.push(propertyName);
+            } else {
+                structure.parameters.required = structure.parameters.required.filter(name => name !== propertyName);
+            }
+            updateGeneratedStructure();
+        }
+
+        // Manejar cambios en la obligatoriedad de sub-propiedades
+        function handleSubPropertyRequiredChange(propertyName, subPropertyName, isChecked) {
+            if (isChecked) {
+                structure.parameters.properties[propertyName].required.push(subPropertyName);
+            } else {
+                structure.parameters.properties[propertyName].required = structure.parameters.properties[propertyName].required.filter(name => name !== subPropertyName);
+            }
+            updateGeneratedStructure();
+        }
+
+        // Manejar cambios en la descripción de sub-propiedades
+        function handleSubPropertyDescriptionChange(propertyName, subPropertyName, description) {
+            structure.parameters.properties[propertyName].properties[subPropertyName].description = description;
+            updateGeneratedStructure();
+        }
+
+        // Actualizar estructura generada
+        function updateGeneratedStructure() {
+            document.getElementById('generatedStructure').textContent = JSON.stringify(structure, null, 2);
+        }
+    </script>
+</body>
+</html>
